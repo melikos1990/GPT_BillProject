@@ -11,38 +11,61 @@
       margin: 20px;
       line-height: 1.6;
     }
+
     h1 {
       font-size: 24px;
       margin-bottom: 16px;
     }
+
     label {
       margin-right: 8px;
     }
+
     input[type="number"] {
       width: 120px;
       font-size: 16px;
       padding: 8px;
       box-sizing: border-box;
     }
+
     button {
-      margin: 8px 4px 8px 0;
-      padding: 12px 12px;
-      font-size: 16px;
+      margin: 6px 4px;
+      padding: 10px 12px;
+      font-size: 15px;
+      cursor: pointer;
     }
+
+    .danger {
+      background-color: #d9534f;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+
+    .primary {
+      background-color: #0275d8;
+      color: white;
+      border: none;
+      border-radius: 4px;
+    }
+
     table {
       border-collapse: collapse;
       width: 100%;
       margin-top: 12px;
     }
+
     th, td {
       border: 1px solid #ccc;
       padding: 8px;
       text-align: center;
       white-space: nowrap;
     }
+
     th {
       background-color: #f5f5f5;
     }
+
     .result {
       font-weight: bold;
     }
@@ -52,7 +75,6 @@
       -webkit-overflow-scrolling: touch;
     }
 
-    /* Mobile friendly - safe version */
     @media (max-width: 600px) {
       body { margin: 10px; }
       h1 { font-size: 20px; }
@@ -62,7 +84,7 @@
         margin: 8px 0;
       }
 
-      table { min-width: 700px; }
+      table { min-width: 850px; }
       th, td { font-size: 14px; }
     }
   </style>
@@ -70,29 +92,42 @@
 
 <body>
   <h1>房租電費自動計算器</h1>
-  <p>輸入本期總電費金額後，依序新增每個房間，填入上期與本期電表讀數以及該房間的固定房租與固定雜費，然後點擊「計算」即可自動計算出各房用電度數、電費分攤與總費用。</p>
+
+  <p>
+    輸入本期總電費金額後，新增房間並填入上期與本期電表讀數，
+    系統會自動分攤電費並加上固定房租與雜費。
+    <br>
+    資料會自動儲存在本機，下次打開會自動還原。
+  </p>
 
   <div>
+    <label for="month">月份：</label>
+    <input type="month" id="month" />
+
+    <br><br>
+
     <label for="totalBill">總電費 (元)：</label>
     <input type="number" id="totalBill" min="0" step="0.01" value="0" />
 
     <br><br>
 
-    <button type="button" onclick="addRoom()">新增房間</button>
-    <button type="button" onclick="calculate()">計算</button>
+    <button class="primary" type="button" onclick="addRoom()">新增房間</button>
+    <button class="primary" type="button" onclick="calculate()">計算</button>
+    <button class="danger" type="button" onclick="clearData()">清空本月資料</button>
 
     <div class="table-responsive">
       <table>
         <thead>
           <tr>
             <th>房間</th>
-            <th>上期電表讀數</th>
-            <th>本期電表讀數</th>
+            <th>上期電表</th>
+            <th>本期電表</th>
             <th>用電度數</th>
-            <th>固定房租 (元)</th>
-            <th>固定雜費 (元)</th>
+            <th>房租 (元)</th>
+            <th>雜費 (元)</th>
             <th>電費分攤 (元)</th>
             <th>總費用 (元)</th>
+            <th>操作</th>
           </tr>
         </thead>
         <tbody id="roomsBody"></tbody>
@@ -103,52 +138,138 @@
   <script>
     let roomCount = 0;
 
-    function addRoom() {
+    function getMonthKey() {
+      const month = document.getElementById("month").value;
+      return "billData_" + (month || "default");
+    }
+
+    function saveData() {
+      const data = {
+        month: document.getElementById("month").value,
+        totalBill: document.getElementById("totalBill").value,
+        rooms: []
+      };
+
+      document.querySelectorAll("#roomsBody tr").forEach(row => {
+        data.rooms.push({
+          prev: row.querySelector(".prev").value,
+          curr: row.querySelector(".curr").value,
+          rent: row.querySelector(".rent").value,
+          misc: row.querySelector(".misc").value
+        });
+      });
+
+      localStorage.setItem(getMonthKey(), JSON.stringify(data));
+    }
+
+    function loadData() {
+      const raw = localStorage.getItem(getMonthKey());
+      if (!raw) return;
+
+      const data = JSON.parse(raw);
+      document.getElementById("totalBill").value = data.totalBill || 0;
+
+      document.getElementById("roomsBody").innerHTML = "";
+      roomCount = 0;
+
+      (data.rooms || []).forEach(room => {
+        addRoom(room);
+      });
+
+      calculate();
+    }
+
+    function clearData() {
+      if (!confirm("確定要清空本月資料嗎？")) return;
+      localStorage.removeItem(getMonthKey());
+      document.getElementById("roomsBody").innerHTML = "";
+      document.getElementById("totalBill").value = 0;
+      roomCount = 0;
+    }
+
+    function addRoom(prefill) {
       roomCount++;
-      const tbody = document.getElementById('roomsBody');
-      const tr = document.createElement('tr');
+      const tbody = document.getElementById("roomsBody");
+      const tr = document.createElement("tr");
 
       tr.innerHTML = `
-        <td data-label="房間">房間 ${roomCount}</td>
-        <td data-label="上期電表讀數"><input type="number" class="prev" min="0" step="0.01" value="0"></td>
-        <td data-label="本期電表讀數"><input type="number" class="curr" min="0" step="0.01" value="0"></td>
-        <td class="usage" data-label="用電度數">0</td>
-        <td data-label="固定房租 (元)"><input type="number" class="rent" min="0" step="0.01" value="0"></td>
-        <td data-label="固定雜費 (元)"><input type="number" class="misc" min="0" step="0.01" value="0"></td>
-        <td class="share" data-label="電費分攤 (元)">-</td>
-        <td class="result" data-label="總費用 (元)">-</td>
+        <td>房間 ${roomCount}</td>
+        <td><input type="number" class="prev" min="0" step="0.01" value="${prefill?.prev || 0}"></td>
+        <td><input type="number" class="curr" min="0" step="0.01" value="${prefill?.curr || 0}"></td>
+        <td class="usage">0</td>
+        <td><input type="number" class="rent" min="0" step="0.01" value="${prefill?.rent || 0}"></td>
+        <td><input type="number" class="misc" min="0" step="0.01" value="${prefill?.misc || 0}"></td>
+        <td class="share">-</td>
+        <td class="result">-</td>
+        <td>
+          <button class="danger" type="button" onclick="deleteRow(this)">刪除</button>
+        </td>
       `;
+
       tbody.appendChild(tr);
+
+      tr.querySelectorAll("input").forEach(input => {
+        input.addEventListener("input", () => {
+          calculate();
+          saveData();
+        });
+      });
+
+      calculate();
+      saveData();
+    }
+
+    function deleteRow(btn) {
+      btn.closest("tr").remove();
+      calculate();
+      saveData();
     }
 
     function calculate() {
-      const totalBillValue = parseFloat(document.getElementById('totalBill').value) || 0;
+      const totalBillValue = parseFloat(document.getElementById("totalBill").value) || 0;
 
-      const prevs = Array.from(document.querySelectorAll('.prev')).map(i => parseFloat(i.value) || 0);
-      const currents = Array.from(document.querySelectorAll('.curr')).map(i => parseFloat(i.value) || 0);
-      const rents = Array.from(document.querySelectorAll('.rent')).map(i => parseFloat(i.value) || 0);
-      const miscs = Array.from(document.querySelectorAll('.misc')).map(i => parseFloat(i.value) || 0);
+      const rows = document.querySelectorAll("#roomsBody tr");
+      const usages = [];
 
-      const usages = currents.map((curr, i) => Math.max(curr - prevs[i], 0));
+      rows.forEach(row => {
+        const prev = parseFloat(row.querySelector(".prev").value) || 0;
+        const curr = parseFloat(row.querySelector(".curr").value) || 0;
+        usages.push(Math.max(curr - prev, 0));
+      });
+
       const totalUsage = usages.reduce((sum, val) => sum + val, 0);
 
-      const rows = document.querySelectorAll('#roomsBody tr');
       rows.forEach((row, index) => {
         const usage = usages[index];
-        const rent = rents[index];
-        const misc = miscs[index];
+        const rent = parseFloat(row.querySelector(".rent").value) || 0;
+        const misc = parseFloat(row.querySelector(".misc").value) || 0;
 
-        row.querySelector('.usage').textContent = usage.toFixed(2);
+        row.querySelector(".usage").textContent = usage.toFixed(2);
 
         let share = 0;
-        if (totalUsage > 0) share = (usage / totalUsage) * totalBillValue;
+        if (totalUsage > 0) {
+          share = (usage / totalUsage) * totalBillValue;
+        }
 
         const result = share + rent + misc;
 
-        row.querySelector('.share').textContent = share.toFixed(2) + ' 元';
-        row.querySelector('.result').textContent = result.toFixed(2) + ' 元';
+        row.querySelector(".share").textContent = share.toFixed(2) + " 元";
+        row.querySelector(".result").textContent = result.toFixed(2) + " 元";
       });
     }
+
+    document.getElementById("month").addEventListener("change", () => {
+      document.getElementById("roomsBody").innerHTML = "";
+      roomCount = 0;
+      loadData();
+    });
+
+    window.onload = () => {
+      const now = new Date();
+      const monthStr = now.toISOString().slice(0, 7);
+      document.getElementById("month").value = monthStr;
+      loadData();
+    };
   </script>
 </body>
 </html>
