@@ -119,6 +119,7 @@
       <table>
         <thead>
           <tr>
+            <th>操作</th>
             <th>房間</th>
             <th>上期電表</th>
             <th>本期電表</th>
@@ -126,8 +127,7 @@
             <th>房租 (元)</th>
             <th>雜費 (元)</th>
             <th>電費分攤 (元)</th>
-            <th>總費用 (元)</th>
-            <th>操作</th>
+            <th>總費用 (元)</th>          
           </tr>
         </thead>
         <tbody id="roomsBody"></tbody>
@@ -193,6 +193,9 @@
       const tr = document.createElement("tr");
 
       tr.innerHTML = `
+       <td>
+          <button class="danger" type="button" onclick="deleteRow(this)">刪除</button>
+        </td>
         <td>房間 ${roomCount}</td>
         <td><input type="number" class="prev" min="0" step="0.01" value="${prefill?.prev || 0}"></td>
         <td><input type="number" class="curr" min="0" step="0.01" value="${prefill?.curr || 0}"></td>
@@ -200,10 +203,7 @@
         <td><input type="number" class="rent" min="0" step="0.01" value="${prefill?.rent || 0}"></td>
         <td><input type="number" class="misc" min="0" step="0.01" value="${prefill?.misc || 0}"></td>
         <td class="share">-</td>
-        <td class="result">-</td>
-        <td>
-          <button class="danger" type="button" onclick="deleteRow(this)">刪除</button>
-        </td>
+        <td class="result">-</td>        
       `;
 
       tbody.appendChild(tr);
